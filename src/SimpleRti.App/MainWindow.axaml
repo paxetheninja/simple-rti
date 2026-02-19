@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:SimpleRti.App.ViewModels"
+        xmlns:views="using:SimpleRti.App.Views"
+        xmlns:controls="using:SimpleRti.App.Controls"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="650"
+        x:Class="SimpleRti.App.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{Binding WindowTitle}"
+        Width="900" Height="650"
+        MinWidth="600" MinHeight="400">
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open..." Command="{Binding OpenFileCommand}" InputGesture="Ctrl+O" />
+                <Separator />
+                <MenuItem Header="E_xit" Click="OnExitClick" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar -->
+        <Border DockPanel.Dock="Top" Padding="8,4">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Content="Open" Command="{Binding OpenFileCommand}" />
+
+                <TextBlock Text="Mode:" VerticalAlignment="Center" />
+                <ComboBox x:Name="ModeComboBox" Width="160" VerticalAlignment="Center"
+                          SelectedIndex="0" SelectionChanged="OnModeChanged">
+                    <ComboBoxItem Content="Default" />
+                    <ComboBoxItem Content="Specular Enhancement" />
+                    <ComboBoxItem Content="Diffuse Gain" />
+                    <ComboBoxItem Content="Normal Map" />
+                </ComboBox>
+
+                <TextBlock x:Name="SpecularLabel" Text="Specular:" VerticalAlignment="Center" IsVisible="False" />
+                <Slider x:Name="SpecularSlider" Value="{Binding SpecularExponent}" Minimum="1" Maximum="128"
+                        Width="120" VerticalAlignment="Center" IsVisible="False" />
+
+                <TextBlock x:Name="GainLabel" Text="Gain:" VerticalAlignment="Center" IsVisible="False" />
+                <Slider x:Name="GainSlider" Value="{Binding DiffuseGain}" Minimum="0.5" Maximum="6"
+                        Width="120" VerticalAlignment="Center" IsVisible="False" />
+            </StackPanel>
+        </Border>
+
+        <!-- Status Bar -->
+        <Border DockPanel.Dock="Bottom" Padding="8,2">
+            <TextBlock Text="{Binding StatusText}" FontSize="12" />
+        </Border>
+
+        <!-- Main Content -->
+        <Grid ColumnDefinitions="*,Auto">
+            <!-- GL Viewport -->
+            <views:PtmGlControl x:Name="GlControl" Grid.Column="0"
+                                LightU="{Binding LightU}"
+                                LightV="{Binding LightV}"
+                                Mode="{Binding RenderMode}"
+                                SpecularExponent="{Binding SpecularExponent}"
+                                DiffuseGain="{Binding DiffuseGain}" />
+
+            <!-- Right panel: Light Control -->
+            <StackPanel Grid.Column="1" Margin="8" Spacing="8" VerticalAlignment="Bottom">
+                <TextBlock Text="Light Direction" HorizontalAlignment="Center" FontSize="11" />
+                <controls:LightDirectionControl LightU="{Binding LightU, Mode=TwoWay}"
+                                                 LightV="{Binding LightV, Mode=TwoWay}" />
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</Window>

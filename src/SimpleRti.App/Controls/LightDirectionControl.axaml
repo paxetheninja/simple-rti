@@ -1,0 +1,6 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:SimpleRti.App.Controls"
+             x:Class="SimpleRti.App.Controls.LightDirectionControl"
+             Width="120" Height="120">
+</UserControl>

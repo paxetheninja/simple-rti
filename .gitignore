@@ -427,7 +427,7 @@ test-results/
 
 # Mac bundle stuff
 *.dmg
-*.app
+#*.app  # Disabled: conflicts with src/SimpleRti.App/ directory
 
 # content below from: https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
 # General
