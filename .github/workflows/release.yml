@@ -1,0 +1,193 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Windows x64
+        run: >
+          dotnet publish src/SimpleRti.App/SimpleRti.App.csproj
+          -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/win-x64
+
+      - name: Create ZIP
+        run: Compress-Archive -Path publish/win-x64/* -DestinationPath SimpleRti-windows-x64.zip
+        shell: pwsh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: SimpleRti-windows-x64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    env:
+      APP_NAME: SimpleRti.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Keychain
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        run: |
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
+          security import certificate.p12 -k build.keychain \
+            -P "${{ secrets.MACOS_CERTIFICATE_PWD }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+
+      - name: Publish macOS arm64
+        run: >
+          dotnet publish src/SimpleRti.App/SimpleRti.App.csproj
+          -c Release -r osx-arm64 --self-contained
+          -o ${{ runner.temp }}/${{ env.APP_NAME }}/Contents/MacOS
+
+      - name: Publish macOS x64
+        run: >
+          dotnet publish src/SimpleRti.App/SimpleRti.App.csproj
+          -c Release -r osx-x64 --self-contained
+          -o ${{ runner.temp }}/SimpleRti-x64.app/Contents/MacOS
+
+      - name: Create arm64 app bundle
+        run: |
+          cp src/SimpleRti.App/macOS/Info.plist \
+             ${{ runner.temp }}/${{ env.APP_NAME }}/Contents/
+          mkdir -p ${{ runner.temp }}/${{ env.APP_NAME }}/Contents/Resources
+
+      - name: Create x64 app bundle
+        run: |
+          cp src/SimpleRti.App/macOS/Info.plist \
+             ${{ runner.temp }}/SimpleRti-x64.app/Contents/
+          mkdir -p ${{ runner.temp }}/SimpleRti-x64.app/Contents/Resources
+
+      - name: Codesign arm64
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: |
+          find "${{ runner.temp }}/${{ env.APP_NAME }}/Contents/MacOS/" \
+            -type f -perm +111 | while read fname; do
+            codesign --force --timestamp --options=runtime \
+              --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+              --sign "$SIGNING_IDENTITY" "$fname"
+          done
+          codesign --force --timestamp --options=runtime \
+            --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+            --sign "$SIGNING_IDENTITY" \
+            "${{ runner.temp }}/${{ env.APP_NAME }}"
+
+      - name: Codesign x64
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: |
+          find "${{ runner.temp }}/SimpleRti-x64.app/Contents/MacOS/" \
+            -type f -perm +111 | while read fname; do
+            codesign --force --timestamp --options=runtime \
+              --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+              --sign "$SIGNING_IDENTITY" "$fname"
+          done
+          codesign --force --timestamp --options=runtime \
+            --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+            --sign "$SIGNING_IDENTITY" \
+            "${{ runner.temp }}/SimpleRti-x64.app"
+
+      - name: Notarize arm64
+        if: env.APPLE_ID != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ runner.temp }}/${{ env.APP_NAME }}" \
+            "${{ runner.temp }}/SimpleRti-macos-arm64.zip"
+          xcrun notarytool submit "${{ runner.temp }}/SimpleRti-macos-arm64.zip" \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --team-id "${{ secrets.TEAM_ID }}" \
+            --password "${{ secrets.NOTARY_TOOL_PASSWORD }}" \
+            --wait
+          xcrun stapler staple "${{ runner.temp }}/${{ env.APP_NAME }}"
+          # Re-zip after stapling
+          rm "${{ runner.temp }}/SimpleRti-macos-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ runner.temp }}/${{ env.APP_NAME }}" \
+            "${{ runner.temp }}/SimpleRti-macos-arm64.zip"
+
+      - name: Notarize x64
+        if: env.APPLE_ID != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ runner.temp }}/SimpleRti-x64.app" \
+            "${{ runner.temp }}/SimpleRti-macos-x64.zip"
+          xcrun notarytool submit "${{ runner.temp }}/SimpleRti-macos-x64.zip" \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --team-id "${{ secrets.TEAM_ID }}" \
+            --password "${{ secrets.NOTARY_TOOL_PASSWORD }}" \
+            --wait
+          xcrun stapler staple "${{ runner.temp }}/SimpleRti-x64.app"
+          rm "${{ runner.temp }}/SimpleRti-macos-x64.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ runner.temp }}/SimpleRti-x64.app" \
+            "${{ runner.temp }}/SimpleRti-macos-x64.zip"
+
+      - name: Zip (unsigned fallback)
+        if: env.MACOS_CERTIFICATE == ''
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ runner.temp }}/${{ env.APP_NAME }}" \
+            "${{ runner.temp }}/SimpleRti-macos-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "${{ runner.temp }}/SimpleRti-x64.app" \
+            "${{ runner.temp }}/SimpleRti-macos-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: ${{ runner.temp }}/SimpleRti-macos-arm64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64
+          path: ${{ runner.temp }}/SimpleRti-macos-x64.zip
+
+  create-release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows-x64/SimpleRti-windows-x64.zip
+            macos-arm64/SimpleRti-macos-arm64.zip
+            macos-x64/SimpleRti-macos-x64.zip
+          generate_release_notes: true
