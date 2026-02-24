@@ -60,7 +60,7 @@ public sealed class PtmRenderer : IDisposable
         var getString = LoadProc<GlGetString>(gl, "glGetString");
         if (getString != null)
         {
-            var ptr = getString(GL_VERSION);
+            var ptr = getString(GlConsts.GL_VERSION);
             if (ptr != IntPtr.Zero)
             {
                 var version = Marshal.PtrToStringAnsi(ptr);
