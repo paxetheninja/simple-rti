@@ -16,4 +16,5 @@ internal static class GlConstants
     public const int GL_CLAMP_TO_EDGE = 0x812F;
     public const int GL_FALSE = 0;
     public const int GL_TRUE = 1;
+    public const int GL_VERSION = 0x1F02;
 }

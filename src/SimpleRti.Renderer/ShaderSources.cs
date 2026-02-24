@@ -2,6 +2,23 @@ namespace SimpleRti.Renderer;
 
 public static class ShaderSources
 {
+    public static string GetVertex(bool isGles)
+    {
+        if (isGles) return Vertex;
+        return Vertex
+            .Replace("#version 300 es", "#version 330")
+            .Replace("precision highp float;", "");
+    }
+
+    public static string GetFragment(bool isGles)
+    {
+        if (isGles) return Fragment;
+        return Fragment
+            .Replace("#version 300 es", "#version 330")
+            .Replace("precision highp float;", "")
+            .Replace("precision highp sampler2D;", "");
+    }
+
     public const string Vertex = """
         #version 300 es
         precision highp float;

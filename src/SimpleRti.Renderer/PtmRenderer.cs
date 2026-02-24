@@ -23,6 +23,7 @@ public sealed class PtmRenderer : IDisposable
 
     private int _imageWidth, _imageHeight;
     private bool _initialized;
+    private bool _isGles;
     private PtmFormat _format;
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -31,6 +32,8 @@ public sealed class PtmRenderer : IDisposable
     private delegate void GlUniform1f(int location, float v0);
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     private delegate void GlUniform2f(int location, float v0, float v1);
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate IntPtr GlGetString(int name);
 
     private GlUniform1i? _uniform1i;
     private GlUniform1f? _uniform1f;
@@ -53,6 +56,17 @@ public sealed class PtmRenderer : IDisposable
         _uniform1i = LoadProc<GlUniform1i>(gl, "glUniform1i");
         _uniform1f = LoadProc<GlUniform1f>(gl, "glUniform1f");
         _uniform2f = LoadProc<GlUniform2f>(gl, "glUniform2f");
+
+        var getString = LoadProc<GlGetString>(gl, "glGetString");
+        if (getString != null)
+        {
+            var ptr = getString(GL_VERSION);
+            if (ptr != IntPtr.Zero)
+            {
+                var version = Marshal.PtrToStringAnsi(ptr);
+                _isGles = version?.Contains("OpenGL ES") == true;
+            }
+        }
 
         CompileShaders(gl);
         CreateQuad(gl);
@@ -116,12 +130,12 @@ public sealed class PtmRenderer : IDisposable
     private void CompileShaders(GlInterface gl)
     {
         int vs = gl.CreateShader(GL_VERTEX_SHADER);
-        string? vsErr = gl.CompileShaderAndGetError(vs, ShaderSources.Vertex);
+        string? vsErr = gl.CompileShaderAndGetError(vs, ShaderSources.GetVertex(_isGles));
         if (!string.IsNullOrEmpty(vsErr))
             throw new InvalidOperationException($"Vertex shader error: {vsErr}");
 
         int fs = gl.CreateShader(GL_FRAGMENT_SHADER);
-        string? fsErr = gl.CompileShaderAndGetError(fs, ShaderSources.Fragment);
+        string? fsErr = gl.CompileShaderAndGetError(fs, ShaderSources.GetFragment(_isGles));
         if (!string.IsNullOrEmpty(fsErr))
             throw new InvalidOperationException($"Fragment shader error: {fsErr}");
 
