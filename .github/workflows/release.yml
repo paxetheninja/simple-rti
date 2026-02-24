@@ -90,7 +90,7 @@ jobs:
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
           find "${{ runner.temp }}/${{ env.APP_NAME }}/Contents/MacOS/" \
-            -type f \( -name "*.dylib" -o -name "*.dll" -o -perm +111 \) | while read fname; do
+            -type f | while read fname; do
             codesign --force --timestamp --options=runtime \
               --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
               --sign "$SIGNING_IDENTITY" "$fname"
@@ -107,7 +107,7 @@ jobs:
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
           find "${{ runner.temp }}/SimpleRti-x64.app/Contents/MacOS/" \
-            -type f \( -name "*.dylib" -o -name "*.dll" -o -perm +111 \) | while read fname; do
+            -type f | while read fname; do
             codesign --force --timestamp --options=runtime \
               --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
               --sign "$SIGNING_IDENTITY" "$fname"
