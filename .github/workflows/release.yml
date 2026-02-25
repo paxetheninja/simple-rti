@@ -121,7 +121,7 @@ jobs:
           SUBMISSION_ID=$(echo "$SUBMIT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "Submission ID: $SUBMISSION_ID"
           STATUS="In Progress"
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 180); do
             sleep 20
             INFO=$(xcrun notarytool info "$SUBMISSION_ID" \
               --apple-id "${{ secrets.APPLE_ID }}" \
@@ -129,11 +129,11 @@ jobs:
               --password "${{ secrets.NOTARY_TOOL_PASSWORD }}" \
               --output-format json 2>/dev/null || echo '{"status":"network_error"}')
             STATUS=$(echo "$INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "parse_error")
-            echo "Attempt $attempt: $STATUS"
+            echo "Attempt $attempt ($(( attempt * 20 / 60 ))min): $STATUS"
             [ "$STATUS" = "Accepted" ] && break
             [ "$STATUS" = "Invalid" ] && { echo "Notarization rejected"; exit 1; }
           done
-          [ "$STATUS" != "Accepted" ] && { echo "Notarization did not complete: $STATUS"; exit 1; }
+          [ "$STATUS" != "Accepted" ] && { echo "Notarization did not complete after 60min: $STATUS"; exit 1; }
           xcrun stapler staple "${{ runner.temp }}/${{ env.APP_NAME }}"
           # Re-zip after stapling
           rm "${{ runner.temp }}/SimpleRti-macos-arm64.zip"
@@ -157,7 +157,7 @@ jobs:
           SUBMISSION_ID=$(echo "$SUBMIT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "Submission ID: $SUBMISSION_ID"
           STATUS="In Progress"
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 180); do
             sleep 20
             INFO=$(xcrun notarytool info "$SUBMISSION_ID" \
               --apple-id "${{ secrets.APPLE_ID }}" \
@@ -165,11 +165,11 @@ jobs:
               --password "${{ secrets.NOTARY_TOOL_PASSWORD }}" \
               --output-format json 2>/dev/null || echo '{"status":"network_error"}')
             STATUS=$(echo "$INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "parse_error")
-            echo "Attempt $attempt: $STATUS"
+            echo "Attempt $attempt ($(( attempt * 20 / 60 ))min): $STATUS"
             [ "$STATUS" = "Accepted" ] && break
             [ "$STATUS" = "Invalid" ] && { echo "Notarization rejected"; exit 1; }
           done
-          [ "$STATUS" != "Accepted" ] && { echo "Notarization did not complete: $STATUS"; exit 1; }
+          [ "$STATUS" != "Accepted" ] && { echo "Notarization did not complete after 60min: $STATUS"; exit 1; }
           xcrun stapler staple "${{ runner.temp }}/SimpleRti-x64.app"
           rm "${{ runner.temp }}/SimpleRti-macos-x64.zip"
           ditto -c -k --sequesterRsrc --keepParent \
