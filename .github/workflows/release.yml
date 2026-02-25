@@ -89,17 +89,23 @@ jobs:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
-          find "${{ runner.temp }}/${{ env.APP_NAME }}" -type f | while IFS= read -r f; do
-            if file "$f" | grep -qE 'Mach-O'; then
-              codesign --force --timestamp --options=runtime \
-                --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
-                --sign "$SIGNING_IDENTITY" "$f"
-            fi
+          APP="${{ runner.temp }}/${{ env.APP_NAME }}"
+          # Sign non-Mach-O files (e.g. .NET IL assemblies) with a minimal signature
+          find "$APP" -type f | while IFS= read -r f; do
+            file "$f" | grep -qE 'Mach-O' && continue
+            codesign --force --sign "$SIGNING_IDENTITY" "$f" 2>/dev/null || true
           done
+          # Sign Mach-O binaries with hardened runtime (required for notarization)
+          find "$APP" -type f | while IFS= read -r f; do
+            file "$f" | grep -qE 'Mach-O' || continue
+            codesign --force --timestamp --options=runtime \
+              --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+              --sign "$SIGNING_IDENTITY" "$f"
+          done
+          # Seal the bundle
           codesign --force --timestamp --options=runtime \
             --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
-            --sign "$SIGNING_IDENTITY" \
-            "${{ runner.temp }}/${{ env.APP_NAME }}"
+            --sign "$SIGNING_IDENTITY" "$APP"
 
       - name: Codesign x64
         if: env.MACOS_CERTIFICATE != ''
@@ -107,17 +113,23 @@ jobs:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
-          find "${{ runner.temp }}/SimpleRti-x64.app" -type f | while IFS= read -r f; do
-            if file "$f" | grep -qE 'Mach-O'; then
-              codesign --force --timestamp --options=runtime \
-                --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
-                --sign "$SIGNING_IDENTITY" "$f"
-            fi
+          APP="${{ runner.temp }}/SimpleRti-x64.app"
+          # Sign non-Mach-O files (e.g. .NET IL assemblies) with a minimal signature
+          find "$APP" -type f | while IFS= read -r f; do
+            file "$f" | grep -qE 'Mach-O' && continue
+            codesign --force --sign "$SIGNING_IDENTITY" "$f" 2>/dev/null || true
           done
+          # Sign Mach-O binaries with hardened runtime (required for notarization)
+          find "$APP" -type f | while IFS= read -r f; do
+            file "$f" | grep -qE 'Mach-O' || continue
+            codesign --force --timestamp --options=runtime \
+              --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+              --sign "$SIGNING_IDENTITY" "$f"
+          done
+          # Seal the bundle
           codesign --force --timestamp --options=runtime \
             --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
-            --sign "$SIGNING_IDENTITY" \
-            "${{ runner.temp }}/SimpleRti-x64.app"
+            --sign "$SIGNING_IDENTITY" "$APP"
 
       - name: Notarize arm64
         if: env.APPLE_ID != ''
