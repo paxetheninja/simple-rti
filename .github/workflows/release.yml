@@ -36,6 +36,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 360
     env:
       APP_NAME: SimpleRti.app
     steps:
@@ -146,7 +147,7 @@ jobs:
             --output-format json)
           ID=$(echo "$SUBMIT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "Submission ID: $ID"
-          for i in $(seq 1 270); do
+          for i in $(seq 1 990); do
             sleep 20
             S=$(xcrun notarytool info "$ID" \
               --apple-id "${{ secrets.APPLE_ID }}" \
@@ -190,7 +191,7 @@ jobs:
             --output-format json)
           ID=$(echo "$SUBMIT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "Submission ID: $ID"
-          for i in $(seq 1 270); do
+          for i in $(seq 1 990); do
             sleep 20
             S=$(xcrun notarytool info "$ID" \
               --apple-id "${{ secrets.APPLE_ID }}" \
