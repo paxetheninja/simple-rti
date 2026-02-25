@@ -89,7 +89,14 @@ jobs:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
-          codesign --deep --force --timestamp --options=runtime \
+          find "${{ runner.temp }}/${{ env.APP_NAME }}" -type f | while IFS= read -r f; do
+            if file "$f" | grep -qE 'Mach-O'; then
+              codesign --force --timestamp --options=runtime \
+                --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+                --sign "$SIGNING_IDENTITY" "$f"
+            fi
+          done
+          codesign --force --timestamp --options=runtime \
             --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
             --sign "$SIGNING_IDENTITY" \
             "${{ runner.temp }}/${{ env.APP_NAME }}"
@@ -100,7 +107,14 @@ jobs:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
         run: |
-          codesign --deep --force --timestamp --options=runtime \
+          find "${{ runner.temp }}/SimpleRti-x64.app" -type f | while IFS= read -r f; do
+            if file "$f" | grep -qE 'Mach-O'; then
+              codesign --force --timestamp --options=runtime \
+                --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
+                --sign "$SIGNING_IDENTITY" "$f"
+            fi
+          done
+          codesign --force --timestamp --options=runtime \
             --entitlements src/SimpleRti.App/macOS/SimpleRti.entitlements \
             --sign "$SIGNING_IDENTITY" \
             "${{ runner.temp }}/SimpleRti-x64.app"
